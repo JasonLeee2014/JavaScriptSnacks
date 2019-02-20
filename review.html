@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <div id="item"></div>
+
+    <input id="input" type="text" autocomplete="on">
+    <ul id="recommand">
+
+    </ul>
+</body>
+
+<style>
+    #item{
+        width: 100px;
+        height: 100px;
+        background-color: aqua;
+        margin-left: 0;
+    }
+</style>
+
+<script>
+    let div = document.getElementById('item')
+    let leftMargin = 0
+    let velocity = 5
+    let isStop = false
+    div.style.marginLeft = `${leftMargin}px`
+
+
+    function move(){
+        if(!isStop){
+            leftMargin += velocity
+            div.style.marginLeft = `${leftMargin}px`
+            requestAnimationFrame(move)
+        }
+    }
+
+    function updateVelocity(minus){
+        if(velocity-minus>0){
+            velocity -= minus
+        }
+    }
+
+    move()
+
+    setTimeout(() => {
+        isStop = true
+    }, 5000);
+
+    setInterval(() => {
+        updateVelocity(5/(5000/100))
+    }, 100);
+
+    let words = ['apple','app','append','hello','help']
+    let recommands = []
+
+    let input = document.getElementById('input')
+    input.addEventListener('input',(ev)=>{
+        let insertedStr = ev.target.value
+
+        recommands = words.filter((word)=>{
+            return word.startsWith(insertedStr)
+        })
+        updateRecommandation(recommands)
+    })
+
+    input.addEventListener('change',ev=>{
+        if(recommands.length){
+            ev.target.value = recommands[0]
+        }
+    })
+
+    function updateRecommandation(words){
+        let recommand = document.getElementById('recommand')
+        let fragment = document.createDocumentFragment()
+        for (const word of words) {
+            let li = document.createElement('li')
+            li.innerHTML = word
+            fragment.appendChild(li)
+        }
+        recommand.innerHTML = ''
+        recommand.appendChild(fragment)
+    }
+
+</script>
+</html>

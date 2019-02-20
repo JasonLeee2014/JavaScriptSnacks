@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    
+</body>
+<script>
+    let callback = function(event){
+        console.log(this)
+        console.log(event)
+    }
+
+    document.addEventListener('mousemove',throttle(callback,1000,{leading:false,}))
+
+    //debounce
+    //debounce实现分两个阶段
+    //第一个阶段实现无immediate
+    function debounce(callback,wait){
+        //原理 通过闭包的一个timer来计时，每次来一个event就清空当前timer然后重新设置timer
+        let timer = null, result
+        let debounced = function(){
+            clearTimeout(timer)
+            //可以使用箭头函数来访问到外部的this与arguments
+            timer = setTimeout(() => {
+                //通过apply、call改变this指向
+                result = callback.apply(this,arguments)
+                //也可这样写
+                // result = callback.call(this,...arguments)
+            }, wait);
+
+            // //也可不用箭头函数，如下
+            // let args,ctx
+            // ctx = this
+            // args = arguments
+            // timer = setTimeout(function(){
+            //     result = callback.apply(ctx,args)
+            // },wait)
+
+            return result
+        }
+
+        //取消
+        debounced.cancel = function(){
+            clearTimeout(timer)
+            timer = null
+        }
+
+        //需要返回一个函数,绑定的this与arguments都来自于这个返回的函数中的this与arguments
+        return debounced
+    }
+
+    //第二阶段，加上immediate
+
+    function debounce2(callback,wait,immediate){
+        let timer = null, result
+
+        let debounced = function(){
+            //1.提出clearTimeout(timer)
+            if(timer){
+                clearTimeout(timer)
+            }
+            //2.加入immediate的判断,并把原来的放进else中
+            if(immediate){
+                //3.实现immediate中的内容
+                //※因为是immediate，所以callback不在timeout中执行而是在timer为null时，事件被触发了就执行
+                if(!timer){
+                    result = callback.apply(this,arguments)
+                }
+                //※同时设定新的timer，每次事件触发，不管timer是不是为null都会置一个新的timer，直到事件到了，timer才为空，这样只有时间
+                //到了，再来一个事件，事件callback才会被执行
+                timer = setTimeout(() => {
+                    timer = null
+                }, wait);
+            }else{
+                timer = setTimeout(() => {
+                    callback.apply(this,arguments)
+                }, wait);
+            }
+
+            return result
+        }
+
+        debounced.cancel = function(){
+            clearTimeout(timer)
+            timer = null
+        }
+
+        return debounced
+    }
+
+    //throttle
+    //先用timestamp方式实现
+    //缺点 最后一次停止触发后，wait时间到了也不会执行
+    //优点 第一次触发会立即执行
+    function throttle1(callback,wait){
+        let previous = 0, result
+        return function(){
+            let reamaining = new Date() - previous
+            if(reamaining > wait){
+                result = callback.apply(this,arguments)
+                previous = new Date()
+            }
+            return result
+        }
+    }
+
+    //利用timeout实现
+    //缺点 第一次不会立即执行
+    //优点 最后停止触发了 最后一次还是到时间后会执行
+    function throttle2(callback,wait){
+        let timer = null,result
+        let ctx,args
+        return function(){
+            ctx = this
+            args = arguments
+            if(!timer){
+                timer = setTimeout(() => {
+                    //与debounce中的immediate的实现的区别两点
+                    //1.timer时间到了才执行，即apply写在timeout里面
+                    //2.不是每次事件触发就重新设置一个新的timer 而是时间到了，即timer为null的时候才重新设置一个新的timer
+                    result = callback.apply(ctx,args)
+                    timer = null
+                }, wait);
+            }
+            return result
+        }
+    }
+
+    //结合实现
+    function throttle3(callback,wait){
+        let timer = null
+        let previous = 0
+        let ctx,args,result
+
+        return function(){
+            ctx = this
+            args = arguments
+
+            let now = new Date()
+            //计算剩余时间，当时间到了 这个值就是负数
+            let reamaining = previous - now + wait
+
+            //1-时间到了 或者用户修改了系统时间(reamaining > wait)
+            if(reamaining <= 0||reamaining > wait){
+                if(timer){
+                    //这里 判断是否存在timer 存在timer意味着有一个上次触发的事件，我们本来认为其是最后一个事件，但是因为现在来了一个新的事件，所以之前那个就不是最后一个事件了，所以要清空timer
+                    clearTimeout(timer)
+                    timer = null
+                }
+                previous = new Date()
+                result = callback.apply(ctx,args)
+                //减少内存占用
+                if(!timer) ctx = args = null
+            }else if(!timer){//2-否则就是在时间没wait足够时，此时有一个新的事件来了 判断此时timer是否为null，即判断此时是否已经有timer在计时了，没有的情况下，设置一个计时器
+                //❤注意这里的思想，每次[[没到wait的]]事件触发都认为这次触发是最后一次，因此为了保证最后一次到时间后能执行，所以需要设置一个timer来执行
+                //实际上这里就只做一件事 设置一个timer
+                timer = setTimeout(() => {
+                    previous = new Date()//注意不要忘了即是是最后一次执行，执行完毕后也要更新previous
+                    result = callback.apply(ctx,args)
+                    timer = null
+                    //减少内存占用
+                    if(!timer) ctx = args = null
+                }, reamaining);
+
+            }
+
+            return result
+        }
+    }
+
+    //加入options
+    function throttle(callback,wait,options){
+        let timer = null
+        let previous = 0
+        let ctx,args,result
+        //1.
+        options = options?options:{}
+
+        return function(){
+            ctx = this
+            args = arguments
+
+            let now = new Date()
+            //2.关于leading需要修改:a.初始化previous
+            if (!previous && options.leading === false) previous = now
+            //计算剩余时间，当时间到了 这个值就是负数
+            let reamaining = previous - now + wait
+
+            //1-时间到了 或者用户修改了系统时间(reamaining > wait)
+            if(reamaining <= 0||reamaining > wait){
+                if(timer){
+                    //这里 判断是否存在timer 存在timer意味着有一个上次触发的事件，我们本来认为其是最后一个事件，但是因为现在来了一个新的事件，所以之前那个就不是最后一个事件了，所以要清空timer
+                    clearTimeout(timer)
+                    timer = null
+                }
+                previous = new Date()
+                result = callback.apply(ctx,args)
+                //减少内存占用
+                if(!timer) ctx = args = null
+            //3.关于trailing需要修改的
+            }else if(!timer&&options.trailing!==false){//2-否则就是在时间没wait足够时，此时有一个新的事件来了 判断此时timer是否为null，即判断此时是否已经有timer在计时了，没有的情况下，设置一个计时器
+                //❤注意这里的思想，每次[[没到wait的]]事件触发都认为这次触发是最后一次，因此为了保证最后一次到时间后能执行，所以需要设置一个timer来执行
+                //实际上这里就只做一件事 设置一个timer
+                timer = setTimeout(() => {
+                    //4.关于leading需要修改:b.修改最后一次记录的previous
+                    previous = options.leading === false?0:new Date()//注意不要忘了即是是最后一次执行，执行完毕后也要更新previous
+                    result = callback.apply(ctx,args)
+                    timer = null
+                    //减少内存占用
+                    if(!timer) ctx = args = null
+                }, reamaining);
+
+            }
+
+            return result
+        }
+    }
+
+
+
+</script>
+</html>
