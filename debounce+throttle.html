@@ -144,6 +144,9 @@
             let now = new Date()
             //计算剩余时间，当时间到了 这个值就是负数
             let reamaining = previous - now + wait
+            // let reamaining = wait - now + previous
+            // 写成这样会失败 原因是从右往左执行，这个now和 previous都是date 就不会转换成number 而上面那个就会转换成number，解决方法是套Number()
+
 
             //1-时间到了 或者用户修改了系统时间(reamaining > wait)
             if(reamaining <= 0||reamaining > wait){
